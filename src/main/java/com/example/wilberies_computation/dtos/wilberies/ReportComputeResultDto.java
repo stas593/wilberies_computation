@@ -1,4 +1,4 @@
-package com.example.wilberies_computation.dtos;
+package com.example.wilberies_computation.dtos.wilberies;
 
 import java.math.BigDecimal;
 import java.util.List;

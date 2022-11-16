@@ -1,4 +1,4 @@
-package com.example.wilberies_computation.dtos;
+package com.example.wilberies_computation.dtos.wilberies;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -7,12 +7,15 @@ import lombok.Data;
 
 @Data
 @Builder
-public class ReportRowDeliveryDto {
+public class ReportRowSaleDto {
 
   private String number;
   private String vendorСode;
   private String name;
   private LocalDate orderDate;
-  private BigDecimal toMoneyPaid;
+  private LocalDate sellDate;
+  private BigDecimal sellingPrice;
+  private BigDecimal tax;
+  private BigDecimal toMoneyTransfer;
 
 }

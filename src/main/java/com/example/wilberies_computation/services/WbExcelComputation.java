@@ -1,15 +1,17 @@
 package com.example.wilberies_computation.services;
 
-import com.example.wilberies_computation.dtos.ReportComputeResultDto;
-import com.example.wilberies_computation.dtos.ReportRowDeliveryDto;
-import com.example.wilberies_computation.dtos.ReportRowSaleDto;
-import com.example.wilberies_computation.entity.ReportEntity;
-import com.example.wilberies_computation.entity.embded.ProductInfoEmbded;
+import com.example.wilberies_computation.dtos.wilberies.ReportComputeResultDto;
+import com.example.wilberies_computation.dtos.wilberies.ReportRowDeliveryDto;
+import com.example.wilberies_computation.dtos.wilberies.ReportRowSaleDto;
+import com.example.wilberies_computation.entity.wildberies.ProductEntity;
+import com.example.wilberies_computation.entity.wildberies.ReportWbEntity;
+import com.example.wilberies_computation.entity.wildberies.embded.ProductInfoWbEmbded;
+import com.example.wilberies_computation.repositories.ProductRepository;
 import com.example.wilberies_computation.repositories.ReportRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -28,6 +30,8 @@ public class WbExcelComputation implements Computation {
 
   @Autowired
   private ReportRepository reportRepository;
+  @Autowired
+  private ProductRepository productRepository;
 
   @SneakyThrows
   public ReportComputeResultDto computeAndSave(MultipartFile xlsx) {
@@ -36,8 +40,6 @@ public class WbExcelComputation implements Computation {
     List<ReportRowSaleDto> rowsSaleList = excelSheetToListSell(sheet);
     List<ReportRowDeliveryDto> rowsDeliveryList = excelSheetToListDelivery(sheet);
     this.createReport(rowsSaleList, rowsDeliveryList);
-    rowsSaleList.forEach(System.out::println);
-    rowsDeliveryList.forEach(System.out::println);
     return ReportComputeResultDto.builder().build();
 
   }
@@ -79,6 +81,7 @@ public class WbExcelComputation implements Computation {
             .vendorСode(formatter.formatCellValue(row.getCell(5)))
             .name(formatter.formatCellValue(row.getCell(6)))
             .orderDate(LocalDate.parse(formatter.formatCellValue(row.getCell(11))))
+            .saleDate(LocalDate.parse(formatter.formatCellValue(row.getCell(12))))
             .toMoneyPaid(BigDecimal.valueOf(row.getCell(32).getNumericCellValue()))
             .build());
       }
@@ -86,42 +89,61 @@ public class WbExcelComputation implements Computation {
     return rowsList;
   }
 
-  private ReportEntity createReport(List<ReportRowSaleDto> saleRows,
+  private ReportWbEntity createReport(List<ReportRowSaleDto> saleRows,
       List<ReportRowDeliveryDto> deliveryRows) {
     BigDecimal howPaid = saleRows.stream().map(ReportRowSaleDto::getToMoneyTransfer)
         .reduce((BigDecimal::add)).get();
     BigDecimal deliveryPaid = deliveryRows.stream().map(ReportRowDeliveryDto::getToMoneyPaid)
         .reduce((BigDecimal::add)).get();
-    List<ProductInfoEmbded> productInfoEmbdeds = saleRowsToProductInfoEmbded(saleRows);
-
-    ReportEntity reportEntity = ReportEntity.builder()
+    List<ProductInfoWbEmbded> productInfoEmbdeds = saleRowsToProductInfoEmbded(saleRows);
+    productInfoEmbdeds.stream().forEach(System.out::println);
+    ReportWbEntity reportEntity = ReportWbEntity.builder()
         .howPaid(howPaid)
+        .dateFrom(saleRows.stream().map(ReportRowSaleDto::getSellDate)
+            .min(Comparator.comparing(LocalDate::toEpochDay)).get())
+        .dateTo(saleRows.stream().map(ReportRowSaleDto::getSellDate)
+            .max(Comparator.comparing(LocalDate::toEpochDay)).get())
         .deliveryPaid(deliveryPaid)
         .revenue(howPaid.subtract(deliveryPaid))
         .quantitySold((int) saleRows.stream().count())
+        .productInfos(productInfoEmbdeds)
         .build();
 
     return reportRepository.save(reportEntity);
   }
 
-  private List<ProductInfoEmbded> saleRowsToProductInfoEmbded(List<ReportRowSaleDto> saleRows) {
-    List<ProductInfoEmbded> productInfoEmbdeds = new ArrayList<>();
+  private List<ProductInfoWbEmbded> saleRowsToProductInfoEmbded(List<ReportRowSaleDto> saleRows) {
+    List<ProductInfoWbEmbded> productInfoEmbdeds = new ArrayList<>();
     Set<String> vendorCodes = Set.copyOf(
         saleRows.stream().map(ReportRowSaleDto::getVendorСode).collect(
             Collectors.toList()));
-    vendorCodes.forEach(System.out::println);
 
-    vendorCodes.stream()
-        .map(code -> saleRows.stream()
-            .filter(row -> row.getVendorСode().equals(code))
-            .map(row -> productInfoEmbdeds.add(ProductInfoEmbded.builder()
-                    .vendorCode(row.getVendorСode())
-                    .
-                .build()))
+    for (String vendorCode : vendorCodes) {
+      ProductInfoWbEmbded infoEmbded = new ProductInfoWbEmbded();
+      ProductEntity product = productRepository.getByVendorCode(vendorCode).orElse(null);
+      for (ReportRowSaleDto rowSale : saleRows) {
+        if (rowSale.getVendorСode().equals(vendorCode)) {
+          if (infoEmbded.getName() == null) {
+            infoEmbded.setName(rowSale.getName());
+          }
+          if (infoEmbded.getProduct() == null) {
+            infoEmbded.setProduct(product);
+          }
+          infoEmbded.setHowManySold(infoEmbded.getHowManySold() + 1L);
+          infoEmbded.setAccrued(infoEmbded.getAccrued().add(rowSale.getToMoneyTransfer()));
+          infoEmbded.setTax(infoEmbded.getTax().add(rowSale.getTax()));
+          infoEmbded.setAccruedWitchTax(infoEmbded.getAccrued().subtract(infoEmbded.getTax()));
+          infoEmbded.setNetProfit(infoEmbded.getAccruedWitchTax()
+              .subtract(BigDecimal.valueOf(infoEmbded.getHowManySold()).multiply(
+                  product == null ? BigDecimal.ONE
+                      : product.getCostPrice() == null ? BigDecimal.valueOf(0)
+                          : product.getCostPrice())));
+        }
+      }
+      productInfoEmbdeds.add(infoEmbded);
+    }
 
-        )
-
-    return Collections.emptyList();
+    return productInfoEmbdeds;
   }
 }
 

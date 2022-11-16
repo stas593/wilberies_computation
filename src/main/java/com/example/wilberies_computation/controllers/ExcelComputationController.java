@@ -1,6 +1,6 @@
 package com.example.wilberies_computation.controllers;
 
-import com.example.wilberies_computation.dtos.ReportComputeResultDto;
+import com.example.wilberies_computation.dtos.wilberies.ReportComputeResultDto;
 import com.example.wilberies_computation.services.Computation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;

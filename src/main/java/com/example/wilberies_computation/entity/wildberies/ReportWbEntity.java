@@ -1,10 +1,9 @@
-package com.example.wilberies_computation.entity;
+package com.example.wilberies_computation.entity.wildberies;
 
-import com.example.wilberies_computation.dtos.ProductInfoDto;
-import com.example.wilberies_computation.entity.embded.ProductInfoEmbded;
+import com.example.wilberies_computation.entity.wildberies.embded.ProductInfoWbEmbded;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
-import java.util.Set;
 import javax.persistence.CollectionTable;
 import javax.persistence.Column;
 import javax.persistence.ElementCollection;
@@ -23,16 +22,21 @@ import org.hibernate.annotations.LazyCollectionOption;
 
 @Entity
 @Data
-@Table(name = "reports")
+@Table(name = "reports_wb")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ReportEntity {
+public class ReportWbEntity {
 
   @Id
   @Column(name = "id", nullable = false)
   @GeneratedValue(strategy = GenerationType.AUTO)
   private Long id;
+
+  @Column(name = "date_from", unique=true)
+  private LocalDate dateFrom;
+  @Column(name = "date_to", unique=true)
+  private LocalDate dateTo;
 
   @Column(name = "how_paid")
   private BigDecimal howPaid;
@@ -49,6 +53,6 @@ public class ReportEntity {
       name = "product_infos",
       joinColumns = @JoinColumn(name = "reports_id")
   )
-  List<ProductInfoEmbded> productInfos;
+  List<ProductInfoWbEmbded> productInfos;
 
 }
