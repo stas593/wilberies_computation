@@ -5,7 +5,7 @@ import com.example.wilberies_computation.dtos.wilberies.ReportRowDeliveryDto;
 import com.example.wilberies_computation.dtos.wilberies.ReportRowSaleDto;
 import com.example.wilberies_computation.entity.wildberies.ProductEntity;
 import com.example.wilberies_computation.entity.wildberies.ReportWbEntity;
-import com.example.wilberies_computation.entity.wildberies.embded.ProductInfoWbEmbded;
+import com.example.wilberies_computation.entity.wildberies.embded.ReportProductInfoWbEmbded;
 import com.example.wilberies_computation.repositories.ProductRepository;
 import com.example.wilberies_computation.repositories.ReportRepository;
 import java.math.BigDecimal;
@@ -91,37 +91,42 @@ public class WbExcelComputation implements Computation {
 
   private ReportWbEntity createReport(List<ReportRowSaleDto> saleRows,
       List<ReportRowDeliveryDto> deliveryRows) {
+
+    List<ReportProductInfoWbEmbded> productInfoEmbdeds = saleRowsToProductInfoEmbded(saleRows);
     BigDecimal howPaid = saleRows.stream().map(ReportRowSaleDto::getToMoneyTransfer)
-        .reduce((BigDecimal::add)).get();
+        .reduce((BigDecimal::add)).orElse(BigDecimal.ZERO);
     BigDecimal deliveryPaid = deliveryRows.stream().map(ReportRowDeliveryDto::getToMoneyPaid)
-        .reduce((BigDecimal::add)).get();
-    List<ProductInfoWbEmbded> productInfoEmbdeds = saleRowsToProductInfoEmbded(saleRows);
+        .reduce((BigDecimal::add)).orElse(BigDecimal.ZERO);
+    BigDecimal revenue = howPaid.subtract(deliveryPaid);
+    BigDecimal primeCost = productInfoEmbdeds.stream().map(ReportProductInfoWbEmbded::getPrimeCost)
+        .reduce(BigDecimal::add).orElse(BigDecimal.ZERO);
+
     productInfoEmbdeds.stream().forEach(System.out::println);
     ReportWbEntity reportEntity = ReportWbEntity.builder()
         .howPaid(howPaid)
         .dateFrom(saleRows.stream().map(ReportRowSaleDto::getSellDate)
-            .min(Comparator.comparing(LocalDate::toEpochDay)).get())
+            .min(Comparator.comparing(LocalDate::toEpochDay)).orElse(null))
         .dateTo(saleRows.stream().map(ReportRowSaleDto::getSellDate)
-            .max(Comparator.comparing(LocalDate::toEpochDay)).get())
+            .max(Comparator.comparing(LocalDate::toEpochDay)).orElse(null))
         .deliveryPaid(deliveryPaid)
-        .revenue(howPaid.subtract(deliveryPaid))
+        .revenue(revenue)
         .quantitySold((int) saleRows.stream().count())
         .productInfos(productInfoEmbdeds)
-        .netProfit(productInfoEmbdeds.stream().map(ProductInfoWbEmbded::getNetProfit)
-            .reduce(BigDecimal::add).get())
+        .primeCost(primeCost)
+        .netProfit(revenue.subtract(primeCost))
         .build();
 
     return reportRepository.save(reportEntity);
   }
 
-  private List<ProductInfoWbEmbded> saleRowsToProductInfoEmbded(List<ReportRowSaleDto> saleRows) {
-    List<ProductInfoWbEmbded> productInfoEmbdeds = new ArrayList<>();
+  private List<ReportProductInfoWbEmbded> saleRowsToProductInfoEmbded(List<ReportRowSaleDto> saleRows) {
+    List<ReportProductInfoWbEmbded> productInfoEmbdeds = new ArrayList<>();
     Set<String> vendorCodes = Set.copyOf(
         saleRows.stream().map(ReportRowSaleDto::getVendorСode).collect(
             Collectors.toList()));
 
     for (String vendorCode : vendorCodes) {
-      ProductInfoWbEmbded infoEmbded = new ProductInfoWbEmbded();
+      ReportProductInfoWbEmbded infoEmbded = new ReportProductInfoWbEmbded();
       ProductEntity product = productRepository.getByVendorCode(vendorCode).orElse(null);
       for (ReportRowSaleDto rowSale : saleRows) {
         if (rowSale.getVendorСode().equals(vendorCode)) {
@@ -138,8 +143,12 @@ public class WbExcelComputation implements Computation {
           infoEmbded.setNetProfit(infoEmbded.getAccruedWitchTax()
               .subtract(BigDecimal.valueOf(infoEmbded.getHowManySold()).multiply(
                   product == null ? BigDecimal.ONE
-                      : product.getCostPrice() == null ? BigDecimal.valueOf(0)
-                          : product.getCostPrice())));
+                      : product.getPrimeCost() == null ? BigDecimal.ZERO
+                          : product.getPrimeCost())));
+          infoEmbded.setPrimeCost(infoEmbded.getPrimeCost().add(
+              product == null ? BigDecimal.ZERO
+                  : product.getPrimeCost() == null ? BigDecimal.ZERO
+                      : product.getPrimeCost()));
         }
       }
       productInfoEmbdeds.add(infoEmbded);

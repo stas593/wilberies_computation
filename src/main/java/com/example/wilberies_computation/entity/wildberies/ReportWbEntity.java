@@ -1,6 +1,6 @@
 package com.example.wilberies_computation.entity.wildberies;
 
-import com.example.wilberies_computation.entity.wildberies.embded.ProductInfoWbEmbded;
+import com.example.wilberies_computation.entity.wildberies.embded.ReportProductInfoWbEmbded;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -48,13 +48,15 @@ public class ReportWbEntity {
   private BigDecimal revenue;
   @Column(name = "net_profit")
   private BigDecimal netProfit;
+  @Column(name = "prime_cost")
+  private BigDecimal primeCost;
 
   @LazyCollection(LazyCollectionOption.TRUE)
   @ElementCollection
   @CollectionTable(
-      name = "product_infos",
+      name = "report_product_infos",
       joinColumns = @JoinColumn(name = "reports_id")
   )
-  List<ProductInfoWbEmbded> productInfos;
+  List<ReportProductInfoWbEmbded> productInfos;
 
 }

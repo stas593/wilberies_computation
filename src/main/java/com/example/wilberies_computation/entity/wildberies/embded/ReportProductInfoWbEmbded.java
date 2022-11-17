@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ProductInfoWbEmbded {
+public class ReportProductInfoWbEmbded {
 
   @Column(name = "name")
   private String name;
@@ -35,5 +35,7 @@ public class ProductInfoWbEmbded {
   private BigDecimal accruedWitchTax;
   @Column(name = "net_profit")
   private BigDecimal NetProfit;
+  @Column(name = "prime_cost")
+  private BigDecimal primeCost = BigDecimal.ZERO;
 
 }

@@ -5,8 +5,6 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -30,8 +28,8 @@ public class ProductEntity {
   private String fullName;
   @Column(name = "total_sold")
   private Long totalSold = 0L;
-  @Column(name = "cost_price")
-  private BigDecimal costPrice = BigDecimal.ZERO;
+  @Column(name = "prime_cost")
+  private BigDecimal primeCost  = BigDecimal.ZERO;
   @Column(name = "marketplace")
   @Enumerated(EnumType.STRING)
   private MarketplacesEnum marketplace;
