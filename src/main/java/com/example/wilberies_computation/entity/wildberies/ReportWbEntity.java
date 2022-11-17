@@ -46,6 +46,8 @@ public class ReportWbEntity {
   private BigDecimal deliveryPaid;
   @Column(name = "revenue")
   private BigDecimal revenue;
+  @Column(name = "net_profit")
+  private BigDecimal netProfit;
 
   @LazyCollection(LazyCollectionOption.TRUE)
   @ElementCollection

@@ -107,6 +107,8 @@ public class WbExcelComputation implements Computation {
         .revenue(howPaid.subtract(deliveryPaid))
         .quantitySold((int) saleRows.stream().count())
         .productInfos(productInfoEmbdeds)
+        .netProfit(productInfoEmbdeds.stream().map(ProductInfoWbEmbded::getNetProfit)
+            .reduce(BigDecimal::add).get())
         .build();
 
     return reportRepository.save(reportEntity);
