@@ -2,6 +2,7 @@ package com.example.wilberies_computation.services;
 
 import com.example.wilberies_computation.dtos.wilberies.ReportComputeResultDto;
 import com.example.wilberies_computation.dtos.wilberies.ReportRowDeliveryDto;
+import com.example.wilberies_computation.dtos.wilberies.ReportRowFineDto;
 import com.example.wilberies_computation.dtos.wilberies.ReportRowSaleDto;
 import com.example.wilberies_computation.entity.wildberies.ProductEntity;
 import com.example.wilberies_computation.entity.wildberies.ReportWbEntity;
@@ -39,7 +40,8 @@ public class WbExcelComputation implements Computation {
     Sheet sheet = workbook.getSheetAt(0);
     List<ReportRowSaleDto> rowsSaleList = excelSheetToListSell(sheet);
     List<ReportRowDeliveryDto> rowsDeliveryList = excelSheetToListDelivery(sheet);
-    this.createReport(rowsSaleList, rowsDeliveryList);
+    List<ReportRowFineDto> rowsFineList = excelSheetToListFine(sheet);
+    this.createReport(rowsSaleList, rowsDeliveryList, rowsFineList);
     return ReportComputeResultDto.builder().build();
 
   }
@@ -89,8 +91,29 @@ public class WbExcelComputation implements Computation {
     return rowsList;
   }
 
+  private List<ReportRowFineDto> excelSheetToListFine(Sheet sheet) {
+    DataFormatter formatter = new DataFormatter();
+    List<ReportRowFineDto> rowsList = new ArrayList<>();
+    for (Row row : sheet) {
+      if (row.getRowNum() == 0) {
+        continue;
+      }
+      if (formatter.formatCellValue(row.getCell(10)).equals("Штрафы")) {
+        rowsList.add(ReportRowFineDto.builder()
+            .number(formatter.formatCellValue(row.getCell(0)))
+            .vendorСode(formatter.formatCellValue(row.getCell(5)))
+            .name(formatter.formatCellValue(row.getCell(6)))
+            .orderDate(LocalDate.parse(formatter.formatCellValue(row.getCell(11))))
+            .saleDate(LocalDate.parse(formatter.formatCellValue(row.getCell(12))))
+            .finesPaid(BigDecimal.valueOf(row.getCell(33).getNumericCellValue()))
+            .build());
+      }
+    }
+    return rowsList;
+  }
+
   private ReportWbEntity createReport(List<ReportRowSaleDto> saleRows,
-      List<ReportRowDeliveryDto> deliveryRows) {
+      List<ReportRowDeliveryDto> deliveryRows, List<ReportRowFineDto> rowsFineList) {
 
     List<ReportProductInfoWbEmbded> productInfoEmbdeds = saleRowsToProductInfoEmbded(saleRows);
     BigDecimal howPaid = saleRows.stream().map(ReportRowSaleDto::getToMoneyTransfer)
@@ -99,6 +122,9 @@ public class WbExcelComputation implements Computation {
         .reduce((BigDecimal::add)).orElse(BigDecimal.ZERO);
     BigDecimal revenue = howPaid.subtract(deliveryPaid);
     BigDecimal primeCost = productInfoEmbdeds.stream().map(ReportProductInfoWbEmbded::getPrimeCost)
+        .reduce(BigDecimal::add).orElse(BigDecimal.ZERO);
+
+    BigDecimal fines = rowsFineList.stream().map(ReportRowFineDto::getFinesPaid)
         .reduce(BigDecimal::add).orElse(BigDecimal.ZERO);
 
     productInfoEmbdeds.stream().forEach(System.out::println);
@@ -113,13 +139,15 @@ public class WbExcelComputation implements Computation {
         .quantitySold((int) saleRows.stream().count())
         .productInfos(productInfoEmbdeds)
         .primeCost(primeCost)
-        .netProfit(revenue.subtract(primeCost))
+        .netProfit(revenue.subtract(primeCost).subtract(fines))
+        .fines(fines)
         .build();
 
     return reportRepository.save(reportEntity);
   }
 
-  private List<ReportProductInfoWbEmbded> saleRowsToProductInfoEmbded(List<ReportRowSaleDto> saleRows) {
+  private List<ReportProductInfoWbEmbded> saleRowsToProductInfoEmbded(
+      List<ReportRowSaleDto> saleRows) {
     List<ReportProductInfoWbEmbded> productInfoEmbdeds = new ArrayList<>();
     Set<String> vendorCodes = Set.copyOf(
         saleRows.stream().map(ReportRowSaleDto::getVendorСode).collect(

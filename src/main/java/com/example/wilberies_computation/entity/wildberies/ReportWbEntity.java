@@ -50,6 +50,8 @@ public class ReportWbEntity {
   private BigDecimal netProfit;
   @Column(name = "prime_cost")
   private BigDecimal primeCost;
+  @Column(name = "fines")
+  private BigDecimal fines;
 
   @LazyCollection(LazyCollectionOption.TRUE)
   @ElementCollection
